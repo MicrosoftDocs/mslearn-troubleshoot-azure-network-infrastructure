@@ -1,0 +1,353 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "username": {
+            "type": "string",
+            "defaultValue": "azureuser"
+        },
+        "password": {
+            "type": "securestring"
+        }
+    },
+    "variables": {
+        "location": "eastus",
+        "VmSize":"Standard_DS1_v2",
+        "VnetName": "MyVnet1",
+        "VnetAddressPrefix": "10.10.0.0/16",
+        "VnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks', variables('VnetName'))]",
+        "NSGName": "MyNsg",
+        "NSGResourceId": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('NSGName'))]",
+        "FrontendVMName": "FrontendVM",
+        "FrontendVMNicName": "FrontendVM-nic",
+        "FrontendVMNicPIPName": "FrontendVM-nic-pip",
+        "FrontendSubnetName": "FrontendSubnet",
+        "FrontendSubnetPrefix": "10.10.1.0/24",
+        "FrontendVMDNSName": "[concat('frontend-', uniqueString(resourceGroup().id))]",
+        "FrontendVMNicResourceId": "[resourceId('Microsoft.Network/networkInterfaces', variables('FrontendVMNicName'))]",
+        "FrontendVMNicPIPResourceId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('FrontendVMNicPIPName'))]",
+        "FrontendSubnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('VnetName'), variables('FrontendSubnetName'))]",
+        "BackendSubnetName": "BackendSubnet",
+        "BackendSubnetPrefix": "10.10.2.0/24",
+        "BackendVMName": "BackendVM",
+        "BackendVMNicName": "BackendVM-nic",
+        "BackendVMNicPIPName": "BackendVM-nic-pip",
+        "BackendVMDNSName": "[concat('backendvm-', uniqueString(resourceGroup().id))]",
+        "BackendVMNicResourceId": "[resourceId('Microsoft.Network/networkInterfaces', variables('BackendVMNicName'))]",
+        "BackendVMNicPIPResourceId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('BackendVMNicPIPName'))]",
+        "BackendSubnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('VnetName'), variables('BackendSubnetName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "name": "[variables('NSGName')]",
+            "apiVersion": "2018-08-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "AllowHttpFromFrotendToBackend",
+                        "properties": {
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "80",
+                            "sourceAddressPrefix": "[variables('FrontendSubnetPrefix')]",
+                            "destinationAddressPrefix": "[variables('BackendSubnetPrefix')]",
+                            "access": "Deny",
+                            "priority": 200,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "AllowSSHFromInternetToFrontend",
+                        "properties": {
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "[variables('FrontendSubnetPrefix')]",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('VnetName')]",
+            "apiVersion": "2018-08-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('VnetAddressPrefix')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('FrontendSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[variables('FrontendSubnetPrefix')]"
+                        }
+                    },
+                    {
+                        "name": "[variables('BackendSubnetName')]",
+                        "properties": {
+                            "addressPrefix": "[variables('BackendSubnetPrefix')]"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "sku": {
+                "name": "Basic",
+                "tier": "Regional"
+            },
+            "name": "[variables('FrontendVMNicPIPName')]",
+            "apiVersion": "2018-08-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Static",
+                "dnsSettings": {
+                    "domainNameLabel": "[variables('FrontendVMDNSName')]"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "sku": {
+                "name": "Basic",
+                "tier": "Regional"
+            },
+            "name": "[variables('BackendVMNicPIPName')]",
+            "apiVersion": "2018-08-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Static",
+                "dnsSettings":{
+                    "domainNameLabel": "[variables('BackendVMDNSName')]"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[variables('FrontendVMNicName')]",
+            "apiVersion": "2018-08-01",
+            "location": "[variables('location')]",
+            "scale": null,
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAddress": "10.10.1.4",
+                            "privateIPAllocationMethod": "Static",
+                            "publicIPAddress": {
+                                "id": "[variables('FrontendVMNicPIPResourceId')]"
+                            },
+                            "subnet": {
+                                "id": "[variables('FrontendSubnetResourceId')]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4"
+                        }
+                    }
+                ],
+                "enableAcceleratedNetworking": false,
+                "enableIPForwarding": false,
+                "primary": true,
+                "networkSecurityGroup": {
+                    "id": "[variables('NSGResourceId')]"
+                }
+            },
+            "dependsOn": [
+                "[variables('FrontendVMNicPIPName')]",
+                "[variables('VnetResourceId')]",
+                "[variables('NSGResourceId')]"
+            ]
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[variables('BackendVMNicName')]",
+            "apiVersion": "2018-08-01",
+            "location": "[variables('location')]",
+            "scale": null,
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAddress": "10.10.2.4",
+                            "privateIPAllocationMethod": "Static",
+                            "publicIPAddress": {
+                                "id": "[variables('BackendVMNicPIPResourceId')]"
+                            },
+                            "subnet": {
+                                "id": "[variables('BackendSubnetResourceId')]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4"
+                        }
+                    }
+                ],
+                "enableAcceleratedNetworking": false,
+                "enableIPForwarding": false,
+                "primary": true,
+                "networkSecurityGroup": {
+                    "id": "[variables('NSGResourceId')]"
+                }
+            },
+            "dependsOn": [
+                "[variables('BackendVMNicPIPName')]",
+                "[variables('VnetResourceId')]",
+                "[variables('NSGResourceId')]"
+            ]
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "name": "[variables('FrontendVMName')]",
+            "apiVersion": "2018-06-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[variables('VmSize')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "osType": "Linux",
+                        "name": "[concat(variables('FrontendVMName'), '-disk')]",
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite",
+                        "managedDisk": {
+                            "storageAccountType": "Premium_LRS"
+                        },
+                        "diskSizeGB": 30
+                    },
+                    "dataDisks": []
+                },
+                "osProfile": {
+                    "computerName": "[variables('FrontendVMName')]",
+                    "adminUsername": "[parameters('username')]",
+                    "adminPassword": "[parameters('password')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": false,
+                        "provisionVMAgent": true
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[variables('FrontendVMNicResourceId')]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": false
+                    }
+                }
+            },
+            "dependsOn": [
+                "[variables('FrontendVMNicName')]"
+            ]
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "name": "[variables('BackendVMName')]",
+            "apiVersion": "2018-06-01",
+            "location": "[variables('location')]",
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "[variables('VmSize')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "osType": "Linux",
+                        "name": "[concat(variables('BackendVMName'), '-disk')]",
+                        "createOption": "FromImage",
+                        "caching": "ReadWrite",
+                        "managedDisk": {
+                            "storageAccountType": "Premium_LRS"
+                        },
+                        "diskSizeGB": 30
+                    },
+                    "dataDisks": []
+                },
+                "osProfile": {
+                    "computerName": "[variables('BackendVMName')]",
+                    "adminUsername": "[parameters('username')]",
+                    "adminPassword": "[parameters('password')]",
+                    "linuxConfiguration": {
+                        "disablePasswordAuthentication": false,
+                        "provisionVMAgent": true
+                    },
+                    "secrets": [],
+                    "allowExtensionOperations": true
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[variables('BackendVMNicResourceId')]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": false
+                    }
+                }
+            },
+            "resources": [
+                {
+                    "type": "extensions",
+                    "name": "apache-ext",
+                    "apiVersion": "2018-10-01",
+                    "location": "[variables('location')]",
+                    "properties": {
+                        "publisher": "Microsoft.Azure.Extensions",
+                        "type": "CustomScript",
+                        "typeHandlerVersion": "2.0",
+                        "autoUpgradeMinorVersion": true,
+                        "settings": {
+                            "skipDos2Unix": true
+                        },
+                        "protectedSettings": {
+                            "commandToExecute": "apt-get -y install nginx"
+                        }
+                    },
+                    "dependsOn": [
+                        "[variables('BackendVMName')]"
+                    ]
+                }
+            ],
+            "dependsOn": [
+                "[variables('BackendVMNicName')]"
+            ]
+        }
+    ],
+    "outputs": {}
+}
