@@ -23,7 +23,7 @@
         "FrontendVMNicPIPName": "FrontendVM-nic-pip",
         "FrontendSubnetName": "FrontendSubnet",
         "FrontendSubnetPrefix": "10.10.1.0/24",
-        "FrontendVMDNSName": "[concat('frontend-', uniqueString(resourceGroup().id))]",
+        "FrontendVMDNSName": "[concat('frontendvm-', uniqueString(resourceGroup().id))]",
         "FrontendVMNicResourceId": "[resourceId('Microsoft.Network/networkInterfaces', variables('FrontendVMNicName'))]",
         "FrontendVMNicPIPResourceId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('FrontendVMNicPIPName'))]",
         "FrontendSubnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('VnetName'), variables('FrontendSubnetName'))]",
