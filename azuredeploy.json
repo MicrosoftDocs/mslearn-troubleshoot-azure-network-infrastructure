@@ -46,7 +46,7 @@
             "properties": {
                 "securityRules": [
                     {
-                        "name": "AllowHttpFromFrotendToBackend",
+                        "name": "AllowHttpFromFrontendToBackend",
                         "properties": {
                             "protocol": "Tcp",
                             "sourcePortRange": "*",
